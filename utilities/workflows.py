@@ -3,7 +3,9 @@ from dataclasses import dataclass
 from typing import List
 import json
 import logging
+
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 # used to carry notebook data
 @dataclass
