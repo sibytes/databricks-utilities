@@ -1,0 +1,6 @@
+black
+mkdocs
+requests
+requests-mock
+sdist
+setuptools-git-versioning

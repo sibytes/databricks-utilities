@@ -2,25 +2,30 @@ from concurrent.futures import ThreadPoolExecutor, Future, as_completed
 from dataclasses import dataclass
 from typing import List
 import json
+import logging
 
 # used to carry notebook data
 @dataclass
 class Notebook:
-  path: str
-  timeout: int
-  parameters: dict = None
-  retry: int = 0
-  enabled:bool = True
-    
-  # add the notebook name to parameters using the path and return
-  def get_parameters(self):
-    
-    if not self.parameters:
-      self.parameters = dict()
-      
-    params = self.parameters
-    params["notebook"] = self.path
-    return params
+    path: str
+    timeout: int
+    parameters: dict = None
+    retry: int = 0
+    enabled:bool = True
+        
+    # add the notebook name to parameters using the path and return
+    def get_parameters(self):
+        """Add the notebook path to parameters
+        
+        """
+        
+        if not self.parameters:
+            self.parameters = dict()
+        
+        params = self.parameters
+        params["notebook"] = self.path
+        
+        return params
 
 # execute a notebook using databricks workflows
 def execute_notebook(notebook:Notebook, dbutils):
@@ -41,9 +46,10 @@ def execute_notebook(notebook:Notebook, dbutils):
                 "status" : "failed",
                 "error" : str(e),
                 "notebook" : notebook.path})
+            logging.error(failed)
             raise Exception(failed)
         
-        print(f"Retrying notebook {notebook.path}")
+        logging.info(f"Retrying notebook {notebook.path}")
         notebook.retry -= 1
   
   
@@ -51,13 +57,14 @@ def try_future(future:Future):
     try:
         return json.loads(future.result())
     except Exception as e:
+        logging.error(str(e))
         return json.loads(str(e))
   
   
 # Parallel execute a list of notebooks in parallel
 def execute_notebooks(notebooks:List[Notebook], maxParallel:int, dbutils):
   
-    print(f"Executing {len(notebooks)} in with maxParallel of {maxParallel}")
+    logging.info(f"Executing {len(notebooks)} in with maxParallel of {maxParallel}")
     with ThreadPoolExecutor(max_workers=maxParallel) as executor:
 
         results = [executor.submit(execute_notebook, notebook, dbutils)
