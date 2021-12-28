@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import List
 import json
 import logging
+logger = logging.getLogger(__name__)
 
 # used to carry notebook data
 @dataclass
@@ -33,7 +34,7 @@ def execute_notebook(notebook:Notebook, dbutils):
     
     """
   
-    print(f"Executing notebook {notebook.path}")
+    logger.info(f"Executing notebook {notebook.path}")
     
     try:
         
@@ -46,10 +47,10 @@ def execute_notebook(notebook:Notebook, dbutils):
                 "status" : "failed",
                 "error" : str(e),
                 "notebook" : notebook.path})
-            logging.error(failed)
+            logger.error(failed)
             raise Exception(failed)
         
-        logging.info(f"Retrying notebook {notebook.path}")
+        logger.info(f"Retrying notebook {notebook.path}")
         notebook.retry -= 1
   
   
@@ -57,14 +58,14 @@ def try_future(future:Future):
     try:
         return json.loads(future.result())
     except Exception as e:
-        logging.error(str(e))
+        logger.error(str(e))
         return json.loads(str(e))
   
   
 # Parallel execute a list of notebooks in parallel
 def execute_notebooks(notebooks:List[Notebook], maxParallel:int, dbutils):
   
-    logging.info(f"Executing {len(notebooks)} in with maxParallel of {maxParallel}")
+    logger.info(f"Executing {len(notebooks)} in with maxParallel of {maxParallel}")
     with ThreadPoolExecutor(max_workers=maxParallel) as executor:
 
         results = [executor.submit(execute_notebook, notebook, dbutils)
