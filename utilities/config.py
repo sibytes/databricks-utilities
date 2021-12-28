@@ -1,90 +1,79 @@
 import logging
 import os
 
+
 class AppConfig:
+    def __init__(self, dbutils, spark) -> None:
+        self.dbutils = dbutils
+        self.spark = spark
 
-  def __init__(self, dbutils, spark) -> None:
-      self.dbutils = dbutils
-      self.spark = spark
+    def _get_env(self, variable: str):
 
+        var = os.getenv(variable)
 
-  def _get_env(self, variable:str): 
+        if var:
+            return var
 
-      var = os.getenv(variable)
+        else:
+            msg = f"Environment variable '{variable}' not found"
+            logging.error(msg)
 
-      if var:
-        return var
+            raise Exception(msg)
 
-      else:
-          msg = f"Environment variable '{variable}' not found"
-          logging.error(msg)
+    def get_oauth_refresh_url(self):
 
-          raise Exception(msg)    
+        return (
+            f"https://login.microsoftonline.com/{self.get_azure_ad_id()}/oauth2/token"
+        )
 
+    def get_storage_account(self):
 
-  def get_oauth_refresh_url(self):
+        return self._get_env("STORAGEACCOUNT")
 
-      return f"https://login.microsoftonline.com/{self.get_azure_ad_id()}/oauth2/token"  
+    def get_environment(self):
 
+        return self._get_env("ENVIRONMENT")
 
-  def get_storage_account(self):
+    def get_azure_ad_id(self):
 
-      return self._get_env("STORAGEACCOUNT")
+        return self._get_env("AZUREADID")
 
+    def get_automation_scope(self):
 
-  def get_environment(self):
+        return self._get_env("AUTOMATIONSCOPE")
 
-      return self._get_env("ENVIRONMENT")
+    def get_dataLake_storage_type(self):
 
+        return self._get_env("STORAGE")
 
-  def get_azure_ad_id(self):
+    def get_resource_group(self):
 
-      return self._get_env("AZUREADID")
+        return self._get_env("RESOURCEGROUP")
 
+    def get_subscription_id(self):
 
-  def get_automation_scope(self):
+        return self._get_env("SUBSCRIPTIONID")
 
-      return self._get_env("AUTOMATIONSCOPE")
+    def _get_dbutils_secret(self, key: str):
 
+        secret = self.dbutils.secrets.get(
+            scope=self.get_automation_scope(), key=self._get_env(key)
+        )
 
-  def get_dataLake_storage_type(self): 
+        return secret
 
-      return self._get_env("STORAGE") 
+    def get_service_principal_id(self):
 
+        return self._get_dbutils_secret("DATAPLATFORMAPPID")
 
-  def get_resource_group(self): 
+    def get_service_credential(self):
 
-      return self._get_env("RESOURCEGROUP") 
+        return self._get_dbutils_secret("DATAPLATFORMSECRET")
 
+    def help(self, as_html=False):
 
-  def get_subscription_id(self): 
-
-      return self._get_env("SUBSCRIPTIONID") 
-
-
-  def _get_dbutils_secret(self, key:str): 
-
-      secret = self.dbutils.secrets.get(
-          scope = self.get_automation_scope(), 
-          key = self._get_env(key))
-
-      return secret
-
-
-  def get_service_principal_id(self):
-
-      return self._get_dbutils_secret("DATAPLATFORMAPPID")
-
-
-  def get_service_credential(self):
-
-      return self._get_dbutils_secret("DATAPLATFORMSECRET")   
-
-
-  def help(self, as_html=False):
-
-      if as_html:
-        return f"""
+        if as_html:
+            return f"""
         <p>Configuration:</p>
         <table>
         <tr><th align='left'>Function          </th><th align='left'> Value               </td></tr>
@@ -100,8 +89,9 @@ class AppConfig:
         <tr><td>get_service_credential()       </td><td> {self.get_service_credential()}         </td></tr>
         </table>
         """
-      else:
-          print(f"""
+        else:
+            print(
+                f"""
   Configuration:
   --------------------------------------------------------
   get_environment()           : {self.get_environment()} 
@@ -114,40 +104,56 @@ class AppConfig:
   get_oauth_refresh_url()     : {self.get_oauth_refresh_url()}      
   get_service_principal_id()  : {self.get_service_principal_id()}       
   get_service_credential()    : [REDACTED]  
-          """)
+          """
+            )
 
+    def connect_storage(self):
 
-  def connect_storage(self):
+        _gen1 = "dfs.adls.oauth2"
+        _gen2 = "fs.azure.account"
 
-      _gen1 = "dfs.adls.oauth2"
-      _gen2 = "fs.azure.account"
+        _storageType = self.get_dataLake_storage_type()
 
-      _storageType = self.get_dataLake_storage_type()
+        if _storageType == "AzureDataLakeGen1":
 
-      if _storageType == "AzureDataLakeGen1":
+            self.spark.conf.set(
+                f"{_gen1}.access.token.provider.type", "ClientCredential"
+            )
+            self.spark.conf.set(f"{_gen1}.client.id", self.get_service_principal_id())
+            self.spark.conf.set(f"{_gen1}.credential", self.get_service_credential())
+            self.spark.conf.set(f"{_gen1}.refresh.url", self.get_oauth_refresh_url())
 
-        self.spark.conf.set(f"{_gen1}.access.token.provider.type", "ClientCredential")
-        self.spark.conf.set(f"{_gen1}.client.id", self.get_service_principal_id())
-        self.spark.conf.set(f"{_gen1}.credential", self.get_service_credential())
-        self.spark.conf.set(f"{_gen1}.refresh.url", self.get_oauth_refresh_url())    
+        elif _storageType == "AzureDataLakeGen2":
 
-      elif _storageType == "AzureDataLakeGen2":
+            self.spark.conf.set(f"{_gen2}.auth.type", "OAuth")
+            self.spark.conf.set(
+                f"{_gen2}.oauth.provider.type",
+                "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider",
+            )
+            self.spark.conf.set(
+                f"{_gen2}.oauth2.client.id", self.get_service_principal_id()
+            )
+            self.spark.conf.set(
+                f"{_gen2}.oauth2.client.secret", self.get_service_credential()
+            )
+            self.spark.conf.set(
+                f"{_gen2}.oauth2.client.endpoint", self.get_oauth_refresh_url()
+            )
 
-        self.spark.conf.set(f"{_gen2}.auth.type", "OAuth")
-        self.spark.conf.set(f"{_gen2}.oauth.provider.type", "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider")
-        self.spark.conf.set(f"{_gen2}.oauth2.client.id", self.get_service_principal_id())
-        self.spark.conf.set(f"{_gen2}.oauth2.client.secret", self.get_service_credential())
-        self.spark.conf.set(f"{_gen2}.oauth2.client.endpoint", self.get_oauth_refresh_url())
+        else:
 
-      else:
+            logging.error(
+                f"Unknown storage type {_storageType} in enviornment variable DATALAKESTORAGE"
+            )
+            raise Exception(
+                f"Unknown storage type {_storageType} in enviornment variable DATALAKESTORAGE"
+            )
 
-          logging.error(f"Unknown storage type {_storageType} in enviornment variable DATALAKESTORAGE")
-          raise Exception(f"Unknown storage type {_storageType} in enviornment variable DATALAKESTORAGE")   
-
-
-      logging.info(f"""
+        logging.info(
+            f"""
         |Connected:
         |-----------------------------------------------
         | environment = {self.get_environment()}
         | storage account = {self.get_storage_account()} 
-      """)
+      """
+        )
