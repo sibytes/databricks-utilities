@@ -2,10 +2,9 @@ from concurrent.futures import ThreadPoolExecutor, Future, as_completed
 from dataclasses import dataclass
 from typing import List
 import json
-import logging
+from . import get_logger
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger = get_logger(__name__)
 
 # used to carry notebook data
 @dataclass
