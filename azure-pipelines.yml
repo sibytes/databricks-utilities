@@ -1,0 +1,54 @@
+variables:
+- group: data-platform-kv
+- group: databricks
+
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+strategy:
+  matrix:
+    Python38:
+      python.version: '3.8'
+
+steps:
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '$(python.version)'
+  displayName: 'Use Python $(python.version)'
+
+- script: |
+    python -m pip install --upgrade pip setuptools wheel twine
+    pip install -r requirements.txt
+  displayName: 'Install dependencies'
+
+
+- script: |
+    python setup.py sdist bdist_wheel
+    ls dist/
+  displayName: 'Artifact creation'
+
+- task: CopyFiles@2
+  inputs:
+    SourceFolder: '$(Build.SourcesDirectory)'
+    Contents: |
+      dist/**
+    TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: 'drop'
+    publishLocation: 'Container'
+  displayName: 'Publish Build Artefacts'
+
+- task: TwineAuthenticate@0
+  inputs:
+    # artifactFeeds: 'sibytes'
+    externalFeeds: 'pypi'
+  displayName: 'Authenticate Twine'
+
+- script: |
+    twine upload -r pypi --config-file $(PYPIRC_PATH) $(Build.SourcesDirectory)/dist/*
+  displayName: 'Publish to Artefact Store'

@@ -5,11 +5,11 @@ from setuptools import setup
 HERE = pathlib.Path(__file__).parent
 
 # The text of the README file
-README = (HERE / "PYPI.md").read_text()
+README = (HERE / "README.md").read_text()
 
 # This call to setup() does all the work
 setup(
-    name="databricks-utilities",
+    name="sibytes-dbx-utils",
     version_config={
         "template": "{tag}",
         "dev_template": "{tag}.dev{ccount}",
@@ -20,10 +20,10 @@ setup(
         "count_commits_from_version_file": False
     },
     setup_requires=['setuptools-git-versioning'],
-    description="Databricks Deployment Utils",
+    description="SiBytes Databricks Pyspark Utils",
     long_description=README,
     long_description_content_type="text/markdown",
-    url="https://autobricks.readthedocs.io/en/latest/",
+    url="https://sibytes-dbx-utils.readthedocs.io/en/latest/",
     project_urls={
         'GitHub': 'https://github.com/semanticinsight/databricks-utilities',
         'Documentation': ''
