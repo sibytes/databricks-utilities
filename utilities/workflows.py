@@ -39,7 +39,7 @@ def execute_notebook(notebook:Notebook, dbutils):
       "status": "executing",
       "notebook": notebook.path
     }
-    logger.info(msg)
+    logger.info(msg["message"], extra=msg)
     
     try:
         result = dbutils.notebook.run(notebook.path, notebook.timeout, notebook.get_parameters())
@@ -48,7 +48,7 @@ def execute_notebook(notebook:Notebook, dbutils):
           "status": "succeeded",
           "notebook": notebook.path
         }
-        logger.info(msg)
+        logger.info(msg["message"], extra=msg)
         return result
     
     except Exception as e:
@@ -59,16 +59,15 @@ def execute_notebook(notebook:Notebook, dbutils):
                 "status": "failed",
                 "error" : str(e),
                 "notebook" : notebook.path}
-            logger.error(msg)
-            msg = json.dumps(msg)
-            raise Exception(msg)
+            logger.error(msg["message"], extra=msg)
+            raise Exception(msg["message"])
             
         msg = {
           "message": f"Retrying notebook {notebook.path}",
           "status": "executing",
           "notebook": notebook.path
         }
-        logger.info(msg)
+        logger.info(msg["message"], extra=msg)
         notebook.retry -= 1
   
   
@@ -77,12 +76,12 @@ def try_future(future:Future):
         return json.loads(future.result())
     except Exception as e:
         msg = {
-            "message" : f"notebook failed",
+            "message" : f"notebook failed. {str(e)}",
             "status": "failed",
             "error" : str(e),
             "notebook" : ""
         }
-        logger.error(msg)
+        logger.error(msg["message"], extra=msg)
         return msg
   
   
@@ -94,7 +93,7 @@ def execute_notebooks(notebooks:List[Notebook], maxParallel:int, dbutils):
       "notebooks": len(notebooks),
       "maxParallel": maxParallel
     }
-    logger.info(msg)
+    logger.info(msg["message"], extra=msg)
     with ThreadPoolExecutor(max_workers=maxParallel) as executor:
 
         results = [executor.submit(execute_notebook, notebook, dbutils)
@@ -113,7 +112,7 @@ def execute_notebooks(notebooks:List[Notebook], maxParallel:int, dbutils):
             "maxParallel": maxParallel,
             "results": results_list
         }
-        logger.info(msg)
+        logger.info(msg["message"], extra=msg)
 
         return results_list
 
