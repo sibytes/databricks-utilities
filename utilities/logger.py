@@ -1,12 +1,14 @@
 import logging, os
 from opencensus.ext.azure.log_exporter import AzureLogHandler
 from logging import LogRecord
-import json
 import requests
+from requests import HTTPError
 import datetime
 import hashlib
 import hmac
 import base64
+from pythonjsonlogger.jsonlogger import JsonFormatter
+
 
 class LogAnalyticsHandler(logging.Handler):
     """Customer handler to log to azure analytics workspace.
@@ -27,8 +29,7 @@ class LogAnalyticsHandler(logging.Handler):
         workspace_id: str,
         shared_key: str,
         log_type: str,
-        log_record_delimiter: str = ",",
-        api_version: str = "2016-04-0",
+        api_version: str = "2016-04-01",
     ):
         """
         LogAnalyticsHandler class constructor
@@ -38,8 +39,7 @@ class LogAnalyticsHandler(logging.Handler):
             workspace_id: log analytics workspace id
             shared_key: log analytics shared key
             log_type: The log record that will be created in loganalytics
-            log_record_delimiter: delimiter to split the formatted message into json message parameter values default=,
-            api_version: the version of the azure rest api to call to insert the message default=016-04-0
+            api_version: the version of the azure rest api to call to insert the message default=016-04-01
         Returns:
             None
         """
@@ -47,7 +47,6 @@ class LogAnalyticsHandler(logging.Handler):
         super().__init__()
         self._workspace_id = workspace_id
         self._shared_key = shared_key
-        self._log_record_delimiter = log_record_delimiter
         self._log_type = log_type
         self._api_version = api_version
 
@@ -60,13 +59,7 @@ class LogAnalyticsHandler(logging.Handler):
         Returns:
             None
         """
-
-        # TODO: format into json payload.
-        body = [
-            s.strip().replace(".<module>", "")
-            for s in self.format(record).split(self._log_record_delimiter)
-        ]
-
+        body = self.format(record)
         self._post(self._workspace_id, self._shared_key, body, self._log_type)
 
     # Build the API signature
@@ -100,12 +93,14 @@ class LogAnalyticsHandler(logging.Handler):
             "x-ms-date": rfc1123_date,
         }
 
-        # TODO: Proper error handling.
         response = requests.post(uri, data=body, headers=headers)
-        # if (response.status_code >= 200 and response.status_code <= 299):
-        #     print('Accepted')
-        # else:
-        #     print("Response code: {}".format(response.status_code))
+        try:
+            response.raise_for_status()
+
+        except HTTPError as e:
+
+            msg = f"Log analytic log provider failed. {e.response.status_code} error at {uri} {e.response.text}"
+            raise Exception(msg)
 
 
 def get_logger(name: str, logging_level: int = logging.INFO):
@@ -113,9 +108,8 @@ def get_logger(name: str, logging_level: int = logging.INFO):
     logger = logging.getLogger(name)
     logger.setLevel(logging_level)
 
-    formatter = logging.Formatter(
-        "%(asctime)s %(name)-12s %(levelname)-8s %(message)s", datefmt="%y-%m-%d %H:%M"
-    )
+    format_string = "%(asctime)s.%(msecs)03d, %(name)s, %(module)s, %(funcName)s, line %(lineno)d, %(levelname)s, %(message)s"
+    formatter = logging.Formatter(format_string, datefmt="%Y-%m-%d %H:%M:%S")
 
     if not any(l.get_name() == "console" for l in logger.handlers):
         console = logging.StreamHandler()
@@ -140,8 +134,9 @@ def get_logger(name: str, logging_level: int = logging.INFO):
             workspace_id = os.getenv("LOGANALYTICSID")
             shared_key = os.getenv("LOGANALYTICSKEY")
 
-            log_analytics = LogAnalyticsHandler(workspace_id, shared_key, "test", ",")
+            log_analytics = LogAnalyticsHandler(workspace_id, shared_key, "sibytes_databricks_utils")
             log_analytics.setLevel(logging_level)
+            formatter = JsonFormatter(format_string, datefmt="%Y-%m-%d %H:%M:%S")
             log_analytics.setFormatter(formatter)
             log_analytics.set_name("azure_log_analytics")
             logger.addHandler(log_analytics)

@@ -39,7 +39,8 @@ setup(
     packages=[
         "utilities"],
     install_requires=[
-        "requests"
+        "requests",
+        "python-json-logger"
       ],
     zip_safe=False
 )
