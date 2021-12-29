@@ -62,10 +62,8 @@ class LogAnalyticsHandler(logging.Handler):
         body = self.format(record)
         self._post(self._workspace_id, self._shared_key, body, self._log_type)
 
-
     def _build_signature(self, workspace_id, shared_key, date, content_length):
-        """Build the API signiture for the header authorisation
-        """
+        """Build the API signiture for the header authorisation"""
 
         x_headers = "x-ms-date:" + date
         string_to_hash = f"{self._METHOD}\n{str(content_length)}\n{self._CONTENT_TYPE}\n{x_headers}\n{self._RESOURCE}"
@@ -80,8 +78,7 @@ class LogAnalyticsHandler(logging.Handler):
 
     # Build and send a request to the POST API
     def _post(self, workspace_id, shared_key, body, log_type):
-        """Build API call and log to log analytics
-        """
+        """Build API call and log to log analytics"""
         rfc1123_date = datetime.datetime.utcnow().strftime(self._RFC1123_FORMAT)
         content_length = len(body)
         signature = self._build_signature(
@@ -110,13 +107,15 @@ class LogAnalyticsHandler(logging.Handler):
             raise Exception(msg)
 
 
-def get_logger(name: str, logging_level: int = logging.INFO):
-    """ Get a python canonical logger
+def get_logger(
+    name: str = "sibytesDatabricksUtils", logging_level: int = logging.INFO
+):
+    """Get a python canonical logger
 
-        Setups a console handler for the notebook UI.
-        Also sets up a App Insights and/or log analytics
-        handler if configured in the environment variables.
-    
+    Setups a console handler for the notebook UI.
+    Also sets up a App Insights and/or log analytics
+    handler if configured in the environment variables.
+
     """
     logger = logging.getLogger(name)
     logger.setLevel(logging_level)
@@ -147,7 +146,9 @@ def get_logger(name: str, logging_level: int = logging.INFO):
             workspace_id = os.getenv("LOGANALYTICSID")
             shared_key = os.getenv("LOGANALYTICSKEY")
 
-            log_analytics = LogAnalyticsHandler(workspace_id, shared_key, "sibytes_databricks_utils")
+            log_analytics = LogAnalyticsHandler(
+                workspace_id, shared_key, name
+            )
             log_analytics.setLevel(logging_level)
             formatter = JsonFormatter(format_string, datefmt="%Y-%m-%d %H:%M:%S")
             log_analytics.setFormatter(formatter)
