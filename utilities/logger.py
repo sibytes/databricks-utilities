@@ -108,7 +108,7 @@ class LogAnalyticsHandler(logging.Handler):
 
 
 def get_logger(
-    name: str = "sibytesDatabricksUtils", logging_level: int = logging.INFO
+    name: str = "sibytesDatabricksUtils2", logging_level: int = logging.INFO
 ):
     """Get a python canonical logger
 
