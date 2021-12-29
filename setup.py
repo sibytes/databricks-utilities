@@ -39,6 +39,7 @@ setup(
     packages=[
         "utilities"],
     install_requires=[
+        "requests"
       ],
     zip_safe=False
 )
