@@ -11,7 +11,7 @@ from pythonjsonlogger.jsonlogger import JsonFormatter
 
 
 class LogAnalyticsHandler(logging.Handler):
-    """Customer handler to log to azure analytics workspace.
+    """Custom handler to log to azure analytics workspace.
 
     Formats the log, message and uses the log analytics end point
     to load a json payload.
@@ -108,7 +108,8 @@ class LogAnalyticsHandler(logging.Handler):
 
 
 def get_logger(
-    name: str = "sibytesDatabricksUtils2", logging_level: int = logging.INFO
+    name: str = "sibytesDatabricksUtils3", 
+    logging_level: int = logging.INFO
 ):
     """Get a python canonical logger
 

@@ -35,39 +35,39 @@ def execute_notebook(notebook:Notebook, dbutils):
     
     """
     msg = {
-      "message": f"Executing notebook {notebook.path}",
+      "_message": f"Executing notebook {notebook.path}",
       "status": "executing",
       "notebook": notebook.path
     }
-    logger.info(msg["message"], extra=msg)
+    logger.info(msg["_message"], extra=msg)
     
     try:
         result = dbutils.notebook.run(notebook.path, notebook.timeout, notebook.get_parameters())
         msg = {
-          "message": f"Succeeded notebook {notebook.path}",
+          "_message": f"Succeeded notebook {notebook.path}",
           "status": "succeeded",
           "notebook": notebook.path
         }
-        logger.info(msg["message"], extra=msg)
+        logger.info(msg["_message"], extra=msg)
         return result
     
     except Exception as e:
         
         if notebook.retry < 1:
             msg = {
-                "message" : f"notebook {notebook.path} failed.",
+                "_message" : f"notebook {notebook.path} failed.",
                 "status": "failed",
                 "error" : str(e),
                 "notebook" : notebook.path}
-            logger.error(msg["message"], extra=msg)
-            raise Exception(msg["message"])
+            logger.error(msg["_message"], extra=msg)
+            raise Exception(msg["_message"])
             
         msg = {
-          "message": f"Retrying notebook {notebook.path}",
+          "_message": f"Retrying notebook {notebook.path}",
           "status": "executing",
           "notebook": notebook.path
         }
-        logger.info(msg["message"], extra=msg)
+        logger.info(msg["_message"], extra=msg)
         notebook.retry -= 1
   
   
@@ -76,12 +76,12 @@ def try_future(future:Future):
         return json.loads(future.result())
     except Exception as e:
         msg = {
-            "message" : f"notebook failed. {str(e)}",
+            "_message" : f"notebook failed. {str(e)}",
             "status": "failed",
             "error" : str(e),
             "notebook" : ""
         }
-        logger.error(msg["message"], extra=msg)
+        logger.error(msg["_message"], extra=msg)
         return msg
   
   
@@ -89,11 +89,11 @@ def try_future(future:Future):
 def execute_notebooks(notebooks:List[Notebook], maxParallel:int, dbutils):
 
     msg = {
-      "message": f"Executing {len(notebooks)} with maxParallel of {maxParallel}",
+      "_message": f"Executing {len(notebooks)} with maxParallel of {maxParallel}",
       "notebooks": len(notebooks),
       "maxParallel": maxParallel
     }
-    logger.info(msg["message"], extra=msg)
+    logger.info(msg["_message"], extra=msg)
     with ThreadPoolExecutor(max_workers=maxParallel) as executor:
 
         results = [executor.submit(execute_notebook, notebook, dbutils)
@@ -105,15 +105,13 @@ def execute_notebooks(notebooks:List[Notebook], maxParallel:int, dbutils):
         # or a programmer missed the handling of an error in the notebook task
         # that's what tryFuture(future:Future) does
         results_list = [try_future(r) for r in as_completed(results)]
-
         msg = {
             "message": f"Finished executing {len(notebooks)} with maxParallel of {maxParallel}",
             "notebooks": len(notebooks),
             "maxParallel": maxParallel,
             "results": results_list
         }
-        logger.info(msg["message"], extra=msg)
-
+        logger.info(msg)
         return results_list
 
   
