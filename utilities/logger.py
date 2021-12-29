@@ -52,7 +52,7 @@ class LogAnalyticsHandler(logging.Handler):
 
     def emit(self, record: LogRecord) -> None:
         """
-        Save the log record to SQL Server
+        Save the log record to log analytics
         Parameters:
             self: instance of the class
             record: log record to be saved
@@ -62,8 +62,10 @@ class LogAnalyticsHandler(logging.Handler):
         body = self.format(record)
         self._post(self._workspace_id, self._shared_key, body, self._log_type)
 
-    # Build the API signature
+
     def _build_signature(self, workspace_id, shared_key, date, content_length):
+        """Build the API signiture for the header authorisation
+        """
 
         x_headers = "x-ms-date:" + date
         string_to_hash = f"{self._METHOD}\n{str(content_length)}\n{self._CONTENT_TYPE}\n{x_headers}\n{self._RESOURCE}"
@@ -78,7 +80,8 @@ class LogAnalyticsHandler(logging.Handler):
 
     # Build and send a request to the POST API
     def _post(self, workspace_id, shared_key, body, log_type):
-
+        """Build API call and log to log analytics
+        """
         rfc1123_date = datetime.datetime.utcnow().strftime(self._RFC1123_FORMAT)
         content_length = len(body)
         signature = self._build_signature(
@@ -94,17 +97,27 @@ class LogAnalyticsHandler(logging.Handler):
         }
 
         response = requests.post(uri, data=body, headers=headers)
+
+        # check that there are no response errors.
         try:
             response.raise_for_status()
 
         except HTTPError as e:
-
+            # logging calls will be abstracted so indicate to the user
+            # that it's this handler that's broken and log using the root handler
             msg = f"Log analytic log provider failed. {e.response.status_code} error at {uri} {e.response.text}"
+            logging.error(msg)
             raise Exception(msg)
 
 
 def get_logger(name: str, logging_level: int = logging.INFO):
+    """ Get a python canonical logger
 
+        Setups a console handler for the notebook UI.
+        Also sets up a App Insights and/or log analytics
+        handler if configured in the environment variables.
+    
+    """
     logger = logging.getLogger(name)
     logger.setLevel(logging_level)
 

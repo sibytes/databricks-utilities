@@ -1,4 +1,3 @@
-from logging import LogRecord
 from utilities import get_logger
 
 
