@@ -74,7 +74,7 @@ def execute_notebook(notebook:Notebook, dbutils):
   
 def try_future(future:Future):
     try:
-        return future.result()
+        return json.loads(future.result())
     except Exception as e:
         msg = {
             "message" : f"notebook failed",
@@ -83,7 +83,7 @@ def try_future(future:Future):
             "notebook" : ""
         }
         logger.error(msg)
-        return str(msg)
+        return msg
   
   
 # Parallel execute a list of notebooks in parallel
@@ -106,8 +106,6 @@ def execute_notebooks(notebooks:List[Notebook], maxParallel:int, dbutils):
         # or a programmer missed the handling of an error in the notebook task
         # that's what tryFuture(future:Future) does
         results_list = [try_future(r) for r in as_completed(results)]
-        results_list = json.loads(results_list)
-        results = {"results": results_list}
 
         msg = {
             "message": f"Finished executing {len(notebooks)} with maxParallel of {maxParallel}",
