@@ -4,7 +4,7 @@ from typing import List
 import json
 from . import get_logger
 
-logger = get_logger(__name__)
+logger = get_logger()
 
 # used to carry notebook data
 @dataclass
@@ -34,24 +34,41 @@ def execute_notebook(notebook:Notebook, dbutils):
     """Execute a notebookd using databricks workflows
     
     """
-  
-    logger.info(f"Executing notebook {notebook.path}")
+    msg = {
+      "message": f"Executing notebook {notebook.path}",
+      "status": "executing",
+      "notebook": notebook.path
+    }
+    logger.info(msg)
     
     try:
-        
-        return dbutils.notebook.run(notebook.path, notebook.timeout, notebook.get_parameters())
+        result = dbutils.notebook.run(notebook.path, notebook.timeout, notebook.get_parameters())
+        msg = {
+          "message": f"Succeeded notebook {notebook.path}",
+          "status": "succeeded",
+          "notebook": notebook.path
+        }
+        logger.info(msg)
+        return result
     
     except Exception as e:
         
         if notebook.retry < 1:
-            failed = json.dumps({
-                "status" : "failed",
+            msg = {
+                "message" : f"notebook {notebook.path} failed.",
+                "status": "failed",
                 "error" : str(e),
-                "notebook" : notebook.path})
-            logger.error(failed)
-            raise Exception(failed)
-        
-        logger.info(f"Retrying notebook {notebook.path}")
+                "notebook" : notebook.path}
+            logger.error(msg)
+            msg = json.dumps(msg)
+            raise Exception(msg)
+            
+        msg = {
+          "message": f"Retrying notebook {notebook.path}",
+          "status": "executing",
+          "notebook": notebook.path
+        }
+        logger.info(msg)
         notebook.retry -= 1
   
   
@@ -59,14 +76,25 @@ def try_future(future:Future):
     try:
         return json.loads(future.result())
     except Exception as e:
-        logger.error(str(e))
-        return json.loads(str(e))
+        msg = {
+            "message" : f"notebook {notebook.path} failed",
+            "status": "failed",
+            "error" : str(e),
+            "notebook" : notebook.path
+        }
+        logger.error(msg)
+        return json.loads(str(msg))
   
   
 # Parallel execute a list of notebooks in parallel
 def execute_notebooks(notebooks:List[Notebook], maxParallel:int, dbutils):
-  
-    logger.info(f"Executing {len(notebooks)} in with maxParallel of {maxParallel}")
+
+    msg = {
+      "message": f"Executing {len(notebooks)} with maxParallel of {maxParallel}",
+      "notebooks": len(notebooks),
+      "maxParallel": maxParallel
+    }
+    logger.info(msg)
     with ThreadPoolExecutor(max_workers=maxParallel) as executor:
 
         results = [executor.submit(execute_notebook, notebook, dbutils)
@@ -76,7 +104,9 @@ def execute_notebooks(notebooks:List[Notebook], maxParallel:int, dbutils):
         # the individual notebooks handle their errors and pass back a packaged result
         # we will still need to handle the fact that the notebook execution call may fail
         # or a programmer missed the handling of an error in the notebook task
-        # that's what tryFuture(future:Future) does    
-        return [try_future(r) for r in as_completed(results)]
+        # that's what tryFuture(future:Future) does
+        results_list = [try_future(r) for r in as_completed(results)]
+        results = {"results": results_list}
+        return results
 
   
